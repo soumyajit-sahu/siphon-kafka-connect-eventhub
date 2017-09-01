@@ -1,4 +1,5 @@
 language: java
 sudo: false # faster builds
-after_success:
-  curl -X PUT -T $TRAVIS_TEST_RESULT/azure-eventhub-connector-1.0-SNAPSHOT.jar -H "x-ms-date: $(date -u)" -H "x-ms-blob-type: BlockBlob" "https://$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/$BLOB_CONTAINER/$BLOB_NAME_URL$SAS_TOKEN"
+after_success: >
+  - curl -X PUT -T $TRAVIS_TEST_RESULT/azure-eventhub-connector-1.0-SNAPSHOT.jar -H ""x-ms-date: $(date -u)"" -H ""x-ms-blob-type: BlockBlob"" ""https://$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/$BLOB_CONTAINER/$BLOB_NAME_URL$SAS_TOKEN""
+  
