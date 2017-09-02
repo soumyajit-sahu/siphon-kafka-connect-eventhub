@@ -1,5 +1,4 @@
 language: java
-sudo: false # faster builds
 after_success: >
-  ./azureBlobUpload.sh
+  sudo chmod +x ./azureBlobUpload.sh && ./azureBlobUpload.sh
   
