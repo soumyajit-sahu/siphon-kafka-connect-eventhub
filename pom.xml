@@ -58,4 +58,11 @@
         </plugins>
     </build>
 
+    <distributionManagement>
+        <repository>
+            <id>microsoft-siphon-java-visualstudio.com-siphonsdk</id>
+            <url>https://microsoft-siphon-java.pkgs.visualstudio.com/_packaging/SiphonSDK/maven/v1</url>
+        </repository>
+    </distributionManagement>
+
 </project>
