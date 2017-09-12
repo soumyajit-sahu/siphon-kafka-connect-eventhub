@@ -10,8 +10,10 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -24,33 +26,48 @@ public class EventHubSinkTaskTest {
     public EventHubSinkTask spyEventHubSinkTask;
 
     @Before
-    public void testSetup() {
+    public void testSetup() throws Exception {
         // make EventHubSinkTask.sendAsync() method to not send to any real Event Hub
         CompletableFuture<Void> cf = new CompletableFuture<Void>();
         cf.complete(null);
         doReturn(cf).when(spyEventHubSinkTask).sendAsync(any(EventHubClient.class), any(EventData.class));
-
-        initEventHubClients(5);
+        doReturn(mock(EventHubClient.class)).when(spyEventHubSinkTask).getEventHubClientFromConnectionString(anyString());
     }
 
     @Test
-    public void testPutOfSinkRecords(){
-        spyEventHubSinkTask.put(getSinkRecords(20));
+    public void testEventHubClientSetup() {
+        initConnectorTask("dummy-connection-string", (short) 2);
+        assert spyEventHubSinkTask.getClientCount() == 2;
+    }
+
+    @Test
+    public void testPutOfEventDataSinkRecords(){
+        initConnectorTask("dummy-connection-string", (short) 5);
+        spyEventHubSinkTask.put(getSinkRecords(20, true));
         verify(spyEventHubSinkTask, times(20)).sendAsync(isA(EventHubClient.class), isA(EventData.class));
     }
 
-    private void initEventHubClients(int count) {
-        spyEventHubSinkTask.ehClients = new LinkedBlockingQueue<EventHubClient>(count);
-        for(int i = 0; i < count; i++) {
-            spyEventHubSinkTask.ehClients.offer(mock(EventHubClient.class));
-        }
+    @Test
+    public void testPutOfBytesSinkRecords(){
+        initConnectorTask("dummy-connection-string", (short) 5);
+        spyEventHubSinkTask.put(getSinkRecords(20, false));
+        verify(spyEventHubSinkTask, times(20)).sendAsync(isA(EventHubClient.class), isA(EventData.class));
     }
 
-    private List<SinkRecord> getSinkRecords(int count) {
+    private void initConnectorTask(String connString, short clientsPerTask) {
+        spyEventHubSinkTask.stop(); // start clean slate
+        Map<String, String> config = new HashMap<>();
+        config.put(EventHubSinkConfig.CONNECTION_STRING, connString);
+        config.put(EventHubSinkConfig.CLIENTS_PER_TASK, "" + clientsPerTask);
+
+        spyEventHubSinkTask.start(config);
+    }
+
+    private List<SinkRecord> getSinkRecords(int count, boolean asEventData) {
         LinkedList<SinkRecord> recordList = new LinkedList<>();
         for(int i = 0; i < count; i++) {
-            recordList.add(new SinkRecord("topic1", -1, null, null,
-                    null, new EventData("testdata1".getBytes()), -1));
+            recordList.add(new SinkRecord("topic1", -1, null, null, null,
+                    asEventData? new EventData("testdata1".getBytes()) : "testdata1".getBytes(), -1));
         }
         return recordList;
     }

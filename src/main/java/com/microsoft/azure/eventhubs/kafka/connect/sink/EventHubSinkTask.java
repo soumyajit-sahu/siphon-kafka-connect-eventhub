@@ -21,11 +21,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import com.microsoft.azure.eventhubs.*;
 
 public class EventHubSinkTask extends SinkTask {
-    // protected for testing
-    protected BlockingQueue<EventHubClient> ehClients;
+    // List of EventHubClient objects to be used during data upload
+    private BlockingQueue<EventHubClient> ehClients;
     private static final Logger log = LoggerFactory.getLogger(EventHubSinkTask.class);
-    List<CompletableFuture<Void>> resultSet;
-    private String connectionString;
 
     public String version() {
         return new EventHubSinkConnector().version();
@@ -41,30 +39,24 @@ public class EventHubSinkTask extends SinkTask {
             throw new ConnectException("Couldn't start EventHubSinkTask due to configuration error", ex);
         }
 
-        connectionString = eventHubSinkConfig.getString(EventHubSinkConfig.CONNECTION_STRING);
+        String connectionString = eventHubSinkConfig.getString(EventHubSinkConfig.CONNECTION_STRING);
         log.info("connection string = {}", connectionString);
         short clientsPerTask = eventHubSinkConfig.getShort(EventHubSinkConfig.CLIENTS_PER_TASK);
         log.info("clients per task = {}", clientsPerTask);
-        ehClients = new LinkedBlockingQueue<EventHubClient>(clientsPerTask);
-        try {
-            for (short i = 0; i < clientsPerTask; i++) {
-                ehClients.offer(EventHubClient.createFromConnectionStringSync(connectionString));
-                log.info("Created an Event Hub Client");
-            }
-        } catch (ServiceBusException | IOException ex) {
-            throw new ConnectException("Exception while creating Event Hub client", ex);
-        }
+
+        initializeEventHubClients(connectionString, clientsPerTask);
     }
 
     @Override
     public void put(Collection<SinkRecord> sinkRecords) {
         log.debug("starting to upload {} records", sinkRecords.size());
-        resultSet = new LinkedList<>();
+        List<CompletableFuture<Void>> resultSet = new LinkedList<>();
         for (SinkRecord record : sinkRecords) {
             EventData sendEvent = null;
             EventHubClient ehClient = null;
             try {
                 sendEvent = extractEventData(record);
+                // pick an event hub client to send the data asynchronously
                 ehClient = ehClients.take();
                 resultSet.add(sendAsync(ehClient, sendEvent));
             } catch (InterruptedException ex) {
@@ -78,12 +70,8 @@ public class EventHubSinkTask extends SinkTask {
         }
 
         log.debug("wait for {} async uploads to finish", resultSet.size());
-        waitForAllUploads();
+        waitForAllUploads(resultSet);
         log.debug("finished uploading {} records", sinkRecords.size());
-    }
-
-    protected CompletableFuture<Void> sendAsync(EventHubClient ehClient, EventData sendEvent) {
-        return ehClient.send(sendEvent);
     }
 
     @Override
@@ -93,9 +81,40 @@ public class EventHubSinkTask extends SinkTask {
     @Override
     public void stop() {
         log.info("stopping EventHubSinkTask");
-        for (EventHubClient ehClient : ehClients) {
-            ehClient.close();
-            log.info("closing an Event hub Client");
+        if(ehClients != null) {
+            for (EventHubClient ehClient : ehClients) {
+                ehClient.close();
+                log.info("closing an Event hub Client");
+            }
+        }
+    }
+
+    protected CompletableFuture<Void> sendAsync(EventHubClient ehClient, EventData sendEvent) {
+        return ehClient.send(sendEvent);
+    }
+
+    protected EventHubClient getEventHubClientFromConnectionString(String connectionString) throws ServiceBusException, IOException {
+        return EventHubClient.createFromConnectionStringSync(connectionString);
+    }
+
+    protected int getClientCount() {
+        if(ehClients != null) {
+            return ehClients.size();
+        }
+        else {
+            return 0;
+        }
+    }
+
+    private void initializeEventHubClients(String connectionString, short clientsPerTask) {
+        ehClients = new LinkedBlockingQueue<EventHubClient>(clientsPerTask);
+        try {
+            for (short i = 0; i < clientsPerTask; i++) {
+                ehClients.offer(getEventHubClientFromConnectionString(connectionString));
+                log.info("Created an Event Hub Client");
+            }
+        } catch (ServiceBusException | IOException ex) {
+            throw new ConnectException("Exception while creating Event Hub client", ex);
         }
     }
 
@@ -114,7 +133,7 @@ public class EventHubSinkTask extends SinkTask {
         return eventData;
     }
 
-    private void waitForAllUploads() {
+    private void waitForAllUploads(List<CompletableFuture<Void>> resultSet) {
         for(CompletableFuture<Void> result : resultSet) {
             try {
                 result.get();
