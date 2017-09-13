@@ -8,7 +8,16 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import java.util.Map;
 
 public class EventHubSinkConfig extends AbstractConfig {
+    /**
+     * The connection string for the Event Hub. This can be retrieved from the
+     * Azure Portal -> Event Hubs -> Your Event Hub -> Overview -> Connection Strings
+     */
     public static final String CONNECTION_STRING = "eventhub.connection.string";
+
+    /**
+     * The number of Azure EventHubClient objects to use per task.
+     * Each client will create its own TCP connection, which helps with gaining more throughput
+     */
     public static final String CLIENTS_PER_TASK = "eventhub.clients.per.task";
 
     private static final short defaultClientsPerTask = 1;
