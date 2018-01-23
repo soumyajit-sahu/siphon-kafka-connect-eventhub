@@ -4,7 +4,7 @@
 
     <groupId>com.microsoft.kafkaconnectors</groupId>
     <artifactId>azure-eventhub-connector</artifactId>
-    <version>1.2-SNAPSHOT</version>
+    <version>1.10-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>azure-eventhub-connector</name>
