@@ -4,7 +4,7 @@
 
     <groupId>com.microsoft.kafkaconnectors</groupId>
     <artifactId>azure-eventhub-connector</artifactId>
-    <version>1.10-SNAPSHOT</version>
+    <version>1.11</version>
     <packaging>jar</packaging>
 
     <name>azure-eventhub-connector</name>
@@ -20,6 +20,7 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>connect-api</artifactId>
             <version>0.11.0.0</version>
+            <scope>provided</scope>
         </dependency>
         <!-- https://mvnrepository.com/artifact/com.microsoft.azure/azure-eventhubs -->
         <dependency>
